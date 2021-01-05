@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<title>Karel Clock!</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+var DEFAULT_STATE = {working: false, records: []};
+
+var state;
+window.addEventListener('load', function() {
+  state = DEFAULT_STATE;
+  if (window.localStorage.getItem('state')) {
+    try {
+      state = JSON.parse(window.localStorage.getItem('state'));
+    } catch(e) {
+      state = DEFAULT_STATE;
+    }
+  }
+
+  var today = new Date().toDateString();
+  var table = document.getElementById('timecard');
+  var clear = document.getElementById('clear');
+  var toggle = document.getElementById('toggle');
+  var img = document.getElementById('lever');
+
+  clear.addEventListener('click', function() {
+    if (!confirm('Are you sure you want to clear your records?')) return;
+    state = {working: false, records: []};
+    render();
+  }, false);
+
+  toggle.addEventListener('click', function() {
+    if (!state.working) {
+      state.working = Date.now();
+    } else {
+      if (
+        state.records.length > 0 &&
+        state.records[state.records.length - 1].date === today) {
+        var last = state.records[state.records.length - 1];
+        last.milliseconds += Date.now() - state.working;
+      } else {
+        state.records.push({
+          date: today,
+          milliseconds: Date.now() - state.working,
+          notes: ''
+        });
+      }
+      state.working = false;
+    }
+    render();
+  }, false);
+
+  function render() {
+    toggle.checked = state.working;
+    lever.src = state.working ? 'on.png' : 'off.png';
+    document.body.className = state.working ? 'on' : 'off';
+
+    while (table.firstChild) table.removeChild(table.firstChild);
+    for (var i = 0; i < state.records.length; i++) {
+      var record = state.records[i];
+      var milliseconds = record.milliseconds;
+      if (state.working && record.date === today)
+        milliseconds += Date.now() - state.working;
+      var minutes = (milliseconds / 1_000 / 60);
+      var hours = Math.floor(minutes / 60);
+      minutes = Math.ceil(minutes - hours * 60);
+      hours = hours + ':' + minutes.toString().padStart(2, '0');
+      if (state.working && record.date === today) hours += '*';
+
+      var row = document.createElement('tr');
+      var td_date = document.createElement('td');
+      td_date.textContent = record.date;
+      row.appendChild(td_date);
+
+      var td_hours = document.createElement('td');
+      td_hours.textContent = hours;
+      row.appendChild(td_hours);
+
+      var td_notes = document.createElement('td');
+      var td_notes_input = document.createElement('input');
+      ~function(i) {
+        td_notes_input.addEventListener('change', function() {
+          state.records[i].notes = this.value;
+          render();
+        }, false);
+      }(i);
+      td_notes.appendChild(td_notes_input);
+      td_notes_input.value = record.notes;
+      row.appendChild(td_notes);
+
+      table.appendChild(row);
+
+    }
+
+    window.localStorage.setItem('state', JSON.stringify(state));
+  }
+
+  window.setInterval(render, 10_000);
+  render();
+}, false);
+</script>
+
+<style>
+body {
+  font-family: 'Comic Sans MS';
+  max-width: 40em;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-top: 0;
+  color: black;
+  border-top: 1em solid #ffffff;
+}
+body.on {
+  border-top: 1em solid #ffffbf;
+}
+footer {
+  margin-top: 5em;
+  font-size: 0.8em;
+}
+table {
+  width: 100%;
+}
+thead tr {
+  background: #eef;
+}
+tbody tr:nth-child(even) {
+  background: #eef;
+}
+tbody tr:nth-child(odd) {
+  background: #fee;
+}
+input[type="checkbox"] {
+  display: none;
+}
+img {
+  width: 100%;
+}
+</style>
+
+<input type="checkbox" id="toggle"></input>
+<label for="toggle"><img id="lever" src="on.png"/></label>
+
+
+<table>
+  <thead>
+    <tr><th>Date</th><th>Hours</th><th>Notes</th></tr>
+  </thead>
+  <tbody id="timecard">
+  </tbody>
+</table>
+[<a target="_blank" href="https://code.stanford.edu/cs198/doc/sl-guide/-/wikis/Administrivia/Getting-Paid">What hours are billable?</a>]
+
+<footer><p>Made with ⏳ by Kartik and friends. If you want to be one of those
+friends, send a PR on Github! :) This software is <a
+href="https://unlicense.org">Unlicensed</a>, which (roughly) means you can do
+what you'd like with it, but don't hold me responsible if it eats your laundry.
+I don't quite know how time works, so please don't work past 2am on daylight
+savings time transitions (or, really, on any other night either). The doodle is
+by Ha&nbsp;Tran&nbsp;&rsquo;22, used with permission.
+
+<p>All records are stored locally in your browser's <code>localStorage</code>,
+far from the eyes of any nosy coords.  <button id="clear">Clear
+records</button></footer>
